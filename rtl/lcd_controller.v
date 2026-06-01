@@ -35,7 +35,7 @@ module lcd_controller #(
     assign lcd_rw = 1'b0;
 
     // ---- 타이밍 (cycles) : 최소 1 보장 ----
-    localparam integer C_PWRON = (CLK_HZ/50)      + 1;  // ~20ms 전원안정
+    localparam integer C_PWRON = (CLK_HZ/20)      + 1;  // ~20ms 전원안정
     localparam integer C_INIT  = (CLK_HZ/200)     + 1;  // ~5ms  초기 function set 간격
     localparam integer C_CLEAR = (CLK_HZ/500)     + 1;  // ~2ms  Clear/Home 실행시간
     localparam integer C_EXEC  = (CLK_HZ/20000)   + 1;  // ~50us 일반 명령/데이터 실행
@@ -43,7 +43,8 @@ module lcd_controller #(
 
     // ---- FSM 상태 코드 ----
     localparam S_IDLE   = 3'd0, S_INPUT = 3'd1, S_CHECK = 3'd2,
-               S_UNLOCK = 3'd3, S_ALARM = 3'd4, S_CHANGE = 3'd5;
+               S_UNLOCK = 3'd3, S_ALARM = 3'd4, S_CHANGE = 3'd5,
+					S_DENIED = 3'd6;
 
     // =====================================================================
     //  (a) 메시지 렌더러 : state/input_cnt -> 16글자(128bit) 2줄
@@ -63,6 +64,7 @@ module lcd_controller #(
             S_UNLOCK : begin l1 = "ACCESS GRANTED  "; l2 = "Welcome!        "; end
             S_ALARM  : begin l1 = "!! WARNING !!   "; l2 = "3 Failed Tries  "; end
             S_CHANGE : begin l1 = "New Password?   "; l2 = "Enter New PW    "; end
+				S_DENIED : begin l1 = "** ACCESS DENIED"; l2 = "Wrong Password  "; end
             default  : begin l1 = "                "; l2 = "                "; end
         endcase
     end
