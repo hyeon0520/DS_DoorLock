@@ -18,7 +18,8 @@
 //  CHECK_HOLD 만료 시점에는 이미 "이번 시도 반영 후" 값이다 => fail_cnt==3 이면 ALARM.
 // ============================================================================
 module fsm_controller #(
-    parameter integer CHECK_HOLD = 300_000   // CHECK 표시 유지 사이클 (~0.3s @1MHz)
+    parameter integer CHECK_HOLD = 300_000,   // CHECK (~0.3s @1MHz)
+	 parameter integer DENIED_HOLD = 1_500_000  // DENIED(Error) (~1.5s @1MHz)
 )(
     input  wire        clk,
     input  wire        rst_n,
@@ -41,7 +42,8 @@ module fsm_controller #(
                S_CHECK  = 3'd2,
                S_UNLOCK = 3'd3,
                S_ALARM  = 3'd4,
-               S_CHANGE = 3'd5;
+               S_CHANGE = 3'd5,
+					S_DENIED = 3'd6;
 
     localparam K_ENTER  = 4'hA,
                K_CLEAR  = 4'hB,
@@ -68,8 +70,10 @@ module fsm_controller #(
             if (state != S_CHECK && nstate == S_CHECK) begin
                 match_r <= match;
                 hold    <= 32'd0;
-            end else if (state == S_CHECK) begin
-                hold <= hold + 32'd1;
+            end else if (state != S_DENIED && nstate == S_DENIED) begin
+                hold <= 32'd0;                       // DENIED 진입 시 카운터 초기화
+            end else if (state == S_CHECK || state == S_DENIED) begin
+                hold <= hold + 32'd1;                // 두 상태에서 표시 시간 카운트
             end else begin
                 hold <= 32'd0;
             end
@@ -106,9 +110,18 @@ module fsm_controller #(
                     if (match_r)             nstate = S_UNLOCK;
                     else if (fail_cnt >= 2'd3) nstate = S_ALARM;
                     else begin
-                        nstate  = S_IDLE;
+                        nstate  = S_DENIED;
                         buf_clr = 1'b1;
                     end
+                end
+            end
+				
+				S_DENIED: begin
+                // "Access Denied" 표시. DENIED_HOLD 경과 시 자동 IDLE 복귀.
+                // (표시 중 CLEAR 를 누르면 즉시 빠져나간다)
+                if (is_clear || hold >= DENIED_HOLD-1) begin
+                    nstate  = S_IDLE;
+                    buf_clr = 1'b1;
                 end
             end
 
